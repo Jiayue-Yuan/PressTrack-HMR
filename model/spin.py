@@ -33,7 +33,7 @@ class Regressor(nn.Module):
         nn.init.xavier_uniform_(self.decshape.weight, gain=0.01)
         nn.init.xavier_uniform_(self.deccam.weight, gain=0.01)
 
-        self.smpl = smplx.create('./SMPL_NEUTRAL.pkl', model_type='smpl')
+        self.smpl = smplx.create('/workspace/3d_pose_estimation/smpl/SMPL_NEUTRAL.pkl', model_type='smpl')
 
         mean_params = np.load(smpl_mean_params)
         init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0)
@@ -81,6 +81,27 @@ class Regressor(nn.Module):
         pred_joints = pred_output.joints
 
         pose = rotation_matrix_to_angle_axis(pred_rotmat.reshape(-1, 3, 3)).reshape(-1, 72) # 每个关节相对于全局坐标系的轴角表示
+
+
+        # pred_kp = pred_joints[:, :25][0].detach().cpu().numpy()
+        # pred_verts = pred_vertices[0].detach().cpu().numpy()
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.scatter(pred_kp[:, 0], pred_kp[:, 1], pred_kp[:, 2], c='b', marker='o', label='keypoints')
+        # ax.scatter(pred_verts[:, 0], pred_verts[:, 1], pred_verts[:, 2], c='b', marker='o', label='vertices', s=0.5)
+        # ax.set_zlim([0, -4])
+        # ax.set_xlim([-2, 2])
+        # ax.set_ylim([-2, 2])
+        # ax.set_box_aspect([3, 3, 3])
+        # ax.set_title('kp and verts')
+        # ax.set_xlabel('X')
+        # ax.set_ylabel('Y')
+        # ax.set_zlabel('Z')
+        # ax.legend()
+        # plt.savefig('pred_kp_verts.png')
+        # plt.close(fig)
+        # import pdb; pdb.set_trace()
+
 
         output = [{
             'theta': torch.cat([pred_trans, pose, pred_shape], dim=1),

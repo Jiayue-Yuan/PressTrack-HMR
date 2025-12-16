@@ -7,7 +7,7 @@ def parser_train_config():
 
     # dataset & experiment
     parser.add_argument('--dataset_path',
-                        default='MIP',
+                        default='/workspace/Public_Dataset/MIP',
                         type=str,
                         help='dataset path')
     parser.add_argument('--curr_fold',
@@ -19,7 +19,7 @@ def parser_train_config():
                         type=str,
                         help='unseen_subject or unseen_group')
     parser.add_argument('--gpu',
-                        default=0,
+                        default=1,
                         type=int,
                         help='curr gpu')
     parser.add_argument('--encoder',
@@ -27,7 +27,8 @@ def parser_train_config():
                         type=str,
                         help='which encoder')
     parser.add_argument('--temp_encoder',
-                        default='gru',
+                        default='trans',
+                        # default='gru',
                         type=str,
                         help='which sequence model')
 
@@ -48,7 +49,7 @@ def parser_train_config():
                         type=str,
                         help='dataset path')
     parser.add_argument('--test_save_path',
-                        default='results/trans_nums',
+                        default='log/test',
                         type=str,
                         help='test save path')
     parser.add_argument('--test_best_checkpoints',
@@ -58,7 +59,7 @@ def parser_train_config():
 
     #opt
     parser.add_argument('--lr',
-                        default=1e-6,
+                        default=1e-5,
                         type=float,
                         help='learning rate')
     parser.add_argument('--weight_decay',
@@ -93,6 +94,10 @@ def parser_train_config():
                         default=16,
                         type=int,
                         help='sequence length')
+    parser.add_argument('--mid_frame',
+                        default=7,
+                        type=int,
+                        help='middle frame index')
     parser.add_argument('--overlap',
                         default=0.9,
                         type=float,

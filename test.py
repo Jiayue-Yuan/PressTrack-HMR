@@ -12,8 +12,6 @@ import logging
 import numpy as np
 
 from dataset.CarpetPressureDataset import CarpetPressureDataset
-from model.processor import InputProcessor
-from model.multi_person import MultiPersonProcessor
 from model.single_person import SinglePersonHMR
 
 from core.MPloss import MPHMRLoss
@@ -30,8 +28,8 @@ def main(args):
 
     setup_seed(42)
 
-    logging_path = os.path.join(args.logging_path, 'test', NoteGeneration(args))
-    checkpoints_path = os.path.join(args.checkpoints_path, 'test', NoteGeneration(args))
+    logging_path = os.path.join(args.logging_path, 'test_1215', NoteGeneration(args))
+    checkpoints_path = os.path.join(args.checkpoints_path, 'test_1215', NoteGeneration(args))
     test_save_path = os.path.join(args.test_save_path, NoteGeneration(args))
 
     os.makedirs(logging_path, exist_ok=True)
@@ -42,29 +40,28 @@ def main(args):
                         filemode='w')
     logger = logging.getLogger(__name__)
 
-    logging.info(f"Start training for {args.epochs} epochs.")
+    logging.info(f"Start testing for {args.test_best_checkpoints.split('/')[4:]}.")
 
     loss_record = updateLoss(logging_path)
     loss_record.start()
 
+    # get device and set dtype
+    dtype = torch.float32
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+    # 加载数据集
+    g = torch.Generator()
+    g.manual_seed(42)
     cfgs = {
         'dataset_path': args.dataset_path,
         'seqlen': args.seqlen,
+        'mid_frame': args.mid_frame,
         'overlap': args.overlap,
         'dataset_mode': args.exp_mode,
         'normalize': True,
         'img_size': args.img_size,
         'curr_fold': args.curr_fold,
     }
-
-    # get device and set dtype
-    dtype = torch.float32
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-
-    g = torch.Generator()
-    g.manual_seed(42)
-
     if args.exp_mode == 'unseen_group':
         val_loader = None
         val_segments = None
@@ -170,7 +167,6 @@ def main(args):
     Trainer(
         args=args,
         train_loader=None,
-        val_loader=val_loader,
         model=model,
         optimizer=optimizer,
         criterion=loss,
@@ -179,10 +175,11 @@ def main(args):
         checkpoints_path=checkpoints_path,
         exp_mode=args.exp_mode,
         curr_fold=args.curr_fold,
-        test_loader=test_loader,
+        val_loader=val_loader,
         len_val_set=val_data_len,
-        len_test_set=test_data_len,
         val_segments=val_segments,
+        test_loader=test_loader,
+        len_test_set=test_data_len,
         test_segments=test_segments,
         device=device,
         test_save_path=test_save_path
@@ -194,13 +191,11 @@ if __name__ == '__main__':
     import glob
     # from model.track_processor import MultiPersonProcessor
     from model.multi_person import MultiPersonProcessor
+
     args = parser_train_config()
-
-    gpu = 0
+    gpu = 1
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
-
     args.note = 'test'
-
     args.curr_fold = 1
     args.lr = args.lr
     args.cosine = 1
@@ -208,7 +203,7 @@ if __name__ == '__main__':
     args.seqlen = 16
     args.overlap = 0.95
 
-    args.test_best_checkpoints = '/workspace/MCarpet/checkpoints/20250612/MPCarpet_unseen_group_resnet18_gru_spin_1e-05_16_16_0.9_768_1024/hps_60_losses_101.11.pth'
+    args.test_best_checkpoints = '/workspace/PressTrack-HMR/checkpoints/20250701/PressTrackHMR_unseen_sequence_resnet18_trans_spin_1e-05_16_16_0.9_768_1024/hps_42_losses_98.39.pth'
     configs = args.test_best_checkpoints.split('/')[5].split('_')
     args.exp_mode = 'unseen_' + configs[2]
     args.encoder = configs[3]

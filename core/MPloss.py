@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from scipy.optimize import linear_sum_assignment
+from scipy.optimize import linear_sum_assignment  # 匈牙利算法
 from .SPloss import SPHMRLoss
 import numpy as np
 
@@ -14,12 +14,12 @@ class MPHMRLoss(nn.Module):
         """
         Args:
             outputs: List[List[Dict]], 每个元素是 [batch][person_id] = {'theta': [1, 85], 'kp_3d': [1, 25, 3], 'verts', 'rotmat']}
-            gt_trans: [B, T, max_N, 3]
-            gt_pose: [B, T, max_N, 72]
-            gt_shape: [B, T, max_N, 10]
-            gt_keypoints_3d: [B, T, max_N, 25, 3]
+            gt_trans: [B, max_N, 3]
+            gt_pose: [B, max_N, 72]
+            gt_shape: [B, max_N, 10]
+            gt_keypoints_3d: [B, max_N, 25, 3]
         """
-        batch_size, seqlen, max_N, _= gt_trans.shape
+        batch_size, max_N, _= gt_trans.shape
         total_loss = 0.0
         total_mpjpe = 0.0
         total_matched_pairs = 0
@@ -36,10 +36,10 @@ class MPHMRLoss(nn.Module):
         for b in range(batch_size):
             # 获取当前序列的预测和真实数据，gt取中间帧
             pred_people = outputs[b]  # List[Dict], 每个Dict是一个人的预测
-            gt_trans_b = gt_trans[b, 7]  # [max_N, 3]
-            gt_pose_b = gt_pose[b, 7]  # [max_N, 72]
-            gt_shape_b = gt_shape[b, 7]  # [max_N, 10]
-            gt_kp3d_b = gt_keypoints_3d[b, 7]  # [max_N, 25, 3]
+            gt_trans_b = gt_trans[b]  # [max_N, 3]
+            gt_pose_b = gt_pose[b]  # [max_N, 72]
+            gt_shape_b = gt_shape[b]  # [max_N, 10]
+            gt_kp3d_b = gt_keypoints_3d[b]  # [max_N, 25, 3]
 
             # 找出当前序列的有效真实人数
             valid_gt_mask = gt_shape_b.abs().sum(dim=-1) > 0  # [max_N]

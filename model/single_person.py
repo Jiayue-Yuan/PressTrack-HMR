@@ -70,7 +70,7 @@ class SinglePersonHMR(nn.Module):
     def forward(self, x, bbox_info):
 
         batch_size, seqlen, h, w = x.shape
-        # import pdb; pdb.set_trace()
+
         x = self.encoder(x)  # [batch_size, seqlen, feature_len]
 
         x = torch.cat((x, bbox_info), dim=-1)
@@ -84,10 +84,10 @@ class SinglePersonHMR(nn.Module):
         smpl_output = self.regressor(x)
 
         for s in smpl_output:
-            s['theta'] = s['theta'].reshape(batch_size, -1) # torch.Size([1, 85])
-            s['verts'] = s['verts'].reshape(batch_size, -1, 3) # torch.Size([1, 6890, 3])
-            s['kp_3d'] = s['kp_3d'].reshape(batch_size, -1, 3) # torch.Size([1, 25, 3])
-            s['rotmat'] = s['rotmat'].reshape(batch_size, -1, 3, 3) # torch.Size([1, 24, 3, 3])
+            s['theta'] = s['theta'].reshape(batch_size, -1) # torch.Size([16, 85])
+            s['verts'] = s['verts'].reshape(batch_size, -1, 3) # torch.Size([16, 6890, 3])
+            s['kp_3d'] = s['kp_3d'].reshape(batch_size, -1, 3) # torch.Size([16, 25, 3])
+            s['rotmat'] = s['rotmat'].reshape(batch_size, -1, 3, 3) # torch.Size([16, 24, 3, 3])
 
         return smpl_output
 

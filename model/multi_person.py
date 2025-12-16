@@ -18,21 +18,30 @@ def stabilize_boxes(boxes_seq, eps=1e-6):
     """
     B, T, max_N, _ = boxes_seq.shape
     device = boxes_seq.device
-    stabilized_boxes = torch.zeros_like(boxes_seq)
+    stabilized_boxes = torch.zeros_like(boxes_seq)  # 保持原始形状
 
     for b in range(B):
+        # 记录每个时间步实际有效的检测框数量
         counts = []
         for t in range(T):
             cnt = (boxes_seq[b, t].abs().sum(dim=1) > eps).sum().item()
             counts.append(cnt)
+
+        # 找出该Batch中最常见的检测框数量n
         n = Counter(counts).most_common(1)[0][0] if counts else 0
+
+        # 记录有效时间步（检测框数量==n的帧）
         valid_indices = [t for t, cnt in enumerate(counts) if cnt == n]
 
         for t in range(T):
             if counts[t] == n:
+                # 直接复制有效帧
                 stabilized_boxes[b, t] = boxes_seq[b, t]
             else:
+                # 寻找最近的有效帧t1和t2（检测框数量==n的帧）
                 t1, t2 = find_nearest_valid_frames(t, valid_indices)
+
+                # 加权平均（按时间距离）
                 if t1 == t2:
                     stabilized_boxes[b, t] = boxes_seq[b, t1]
                 else:
@@ -43,6 +52,7 @@ def stabilize_boxes(boxes_seq, eps=1e-6):
     return stabilized_boxes
 
 def find_nearest_valid_frames(t, valid_indices):
+    """找到距离t最近的前后有效帧索引"""
     valid_arr = np.array(valid_indices)
     prev_valid = valid_arr[valid_arr <= t]
     t1 = prev_valid[-1] if len(prev_valid) > 0 else valid_arr[0]
@@ -53,10 +63,20 @@ def find_nearest_valid_frames(t, valid_indices):
     return t1, t2
 
 def extract_person_pressures(pressure_seq: torch.Tensor, boxes_seq: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+    """
+    从压力序列中提取每个人的压力图像，并将其放入 128x128 的中心
+    参数:
+        pressure_seq: 形状为[B, T, H, W]的压力序列
+        boxes_seq: 形状为[B, T, max_N, 4]的边界框序列(格式为x1,y1,x2,y2)
+    返回:
+        形状为[max_N, B, T, 128, 128]的单人压力序列
+        形状为[max_N, B, T, 3]的 128x128 的中心点在原压力图像中的坐标
+    """
     B, T, H, W = pressure_seq.shape
     max_N = boxes_seq.shape[2]
     img_H, img_W = 128, 128
 
+    # 初始化输出张量
     person_pressures = torch.zeros((max_N, B, T, img_H, img_W),
                                    device=pressure_seq.device,
                                    dtype=pressure_seq.dtype)
@@ -120,12 +140,19 @@ class MultiPersonProcessor(nn.Module):
         self.hmr = hmr_model
 
     def forward(self, pressure_seq: torch.Tensor, boxes_seq: torch.Tensor):
+        """
+        Args:
+            pressure_seq: [B, T, H, W] 原始压力序列
+            boxes_seq: [B, T, max_N, 4] 足迹框位置
+        Returns:
+            List[List[Dict]: 每个样本每个人的SMPL参数
+        """
         boxes_seq = stabilize_boxes(boxes_seq) # 0.02s
         person_pressures, centers = extract_person_pressures(pressure_seq, boxes_seq) # 0.05 s
 
         B, T, H, W = pressure_seq.shape
         max_N = boxes_seq.shape[2]
-
+        # 初始化
         MP_smpl_inner = [{} for _ in range(max_N)]
         MP_smpl = [MP_smpl_inner.copy() for _ in range(B)]
         valid_person_pressures = []
@@ -142,6 +169,7 @@ class MultiPersonProcessor(nn.Module):
                     original_indices.append((b, n))
 
         if valid_person_pressures:
+            # 将收集到的压力序列和中心偏移堆叠起来，增加一个批次维度
             batched_person_pressure = torch.stack(valid_person_pressures, dim=0) # [num_valid_persons, T, H, W]
             bbox_info = torch.stack(valid_bbox, dim=0) # [num_valid_persons, T, 2]
             carpet_coords_expanded = carpet_coords.expand(bbox_info.shape[0], bbox_info.shape[1], -1).to(bbox_info.device)
@@ -157,5 +185,4 @@ class MultiPersonProcessor(nn.Module):
                 }
                 if torch.all(boxes_seq[b_idx, :, n_idx] == 0).item():
                     MP_smpl[b_idx][n_idx] = {}
-
         return MP_smpl

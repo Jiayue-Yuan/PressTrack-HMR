@@ -12,7 +12,6 @@ import logging
 import numpy as np
 
 from dataset.CarpetPressureDataset import CarpetPressureDataset
-from model.processor import InputProcessor
 from model.multi_person import MultiPersonProcessor
 from model.single_person import SinglePersonHMR
 
@@ -31,8 +30,8 @@ def main(args):
 
     setup_seed(42)
 
-    logging_path = os.path.join(args.logging_path, 'PressTrack-HMR', NoteGeneration(args))
-    checkpoints_path = os.path.join(args.checkpoints_path, 'PressTrack-HMR', NoteGeneration(args))
+    logging_path = os.path.join(args.logging_path, 'train', NoteGeneration(args))
+    checkpoints_path = os.path.join(args.checkpoints_path, 'train', NoteGeneration(args))
 
     os.makedirs(logging_path, exist_ok=True)
     os.makedirs(checkpoints_path, exist_ok=True)
@@ -50,6 +49,7 @@ def main(args):
     cfgs = {
         'dataset_path': args.dataset_path,
         'seqlen': args.seqlen,
+        'mid_frame': args.mid_frame,
         'overlap': args.overlap,
         'dataset_mode': args.exp_mode,
         'normalize': True,
@@ -88,6 +88,7 @@ def main(args):
         num_workers=0
     )
 
+
     # model
     if args.temp_encoder == 'gru':
         TEncoderConfigs = dict(
@@ -122,12 +123,12 @@ def main(args):
         )
 
     hmr_model = SinglePersonHMR(
-        seqlen=args.seqlen, 
+        seqlen=args.seqlen,  # 16
         TEncoderConfigs=TEncoderConfigs,
         feature_len=args.feature_len,
         tem_feature_len=args.tem_feature_len,
-        encoder_model=args.encoder, 
-        tem_encoder_model=args.temp_encoder, 
+        encoder_model=args.encoder,  # resnet18
+        tem_encoder_model=args.temp_encoder,  # gru
     )
 
     model = MultiPersonProcessor(hmr_model)
@@ -154,7 +155,6 @@ def main(args):
     Trainer(
         args=args,
         train_loader=train_loader,
-        val_loader=val_loader,
         model=model,
         optimizer=optimizer,
         criterion=loss,
@@ -164,10 +164,11 @@ def main(args):
         checkpoints_path=checkpoints_path,
         exp_mode=args.exp_mode,
         curr_fold=args.curr_fold,
-        test_loader=None,
+        val_loader=val_loader,
         len_val_set=val_set.get_data_len(),
-        len_test_set=0,
         val_segments=val_set.get_segments(),
+        test_loader=None,
+        len_test_set=0,
         test_segments=None,
         device=device
     ).fit()

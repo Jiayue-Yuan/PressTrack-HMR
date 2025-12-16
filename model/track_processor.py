@@ -22,15 +22,17 @@ interpolation = 'nearest'
 yolo_model = YOLO(yolo_path)
 
 def get_person_color(person_id):
+  # 预定义一些鲜明的颜色
   colors = [
-    '#00FF00',  
-    '#FF0000',
-    '#00BFFF',
+    '#00FF00',  # 绿色
+    '#FF0000',  # 红色
+    '#00BFFF',  # 蓝色
   ]
   return colors[person_id % len(colors)]
 
 def pressure_to_bgr(pressure_frame: np.ndarray) -> np.ndarray:
-    colored = cmap(pressure_frame)[..., :3]  
+    """将压力数据转换为BGR图像"""
+    colored = cmap(pressure_frame)[..., :3]  # 忽略alpha通道
     rgb_array = (colored * 255).astype(np.uint8)
     bgr_array = rgb_array[..., ::-1]
     return bgr_array
@@ -41,17 +43,27 @@ class MultiPersonProcessor(nn.Module):
         self.hmr = hmr_model
 
     def tracking_by_detection(self, pressure_sequence: torch.Tensor, max_N: int, plot: bool = False):
+        """
+        处理时序压力数据，返回跟踪结果以及区分后的单人压力
+        Args:
+            pressure_sequence: [B, T, H, W] 批量的时序压力数据
+            max_N: int
+            plot: bool 是否开启画图，结果保存在 "tracking_visualization"
+        Returns:
+            boxes_seq: [B, T, max_N, 4] 跟踪得到的的足迹框位置
+        """
         batch_size, seqlen = pressure_sequence.shape[:2]
-        boxes_seq = torch.zeros(batch_size, seqlen, max_N, 4) 
+        boxes_seq = torch.zeros(batch_size, seqlen, max_N, 4)  # 初始化输出张量
 
         for b in range(batch_size):
             if plot:
                 track_ids = []
-                fig, axes = plt.subplots(nrows=2, ncols=8, figsize=(31, 16)) 
+                fig, axes = plt.subplots(nrows=2, ncols=8, figsize=(31, 16)) # figsize 设置整个图的大小
 
             for t in range(seqlen):
                 frame = pressure_sequence[b, t].cpu().numpy()
                 bgr_frame = pressure_to_bgr(frame)
+                # 执行跟踪
                 tracked_objects = yolo_model.track(
                     bgr_frame,
                     persist=True,
@@ -59,13 +71,13 @@ class MultiPersonProcessor(nn.Module):
                     verbose=False,
                     conf=0.7
                 )
-
+                # 解析跟踪结果
                 if tracked_objects[0].boxes.id is not None:
                     bboxes = tracked_objects[0].boxes.xyxy.cpu().numpy()
                     ids = tracked_objects[0].boxes.id.int().cpu().numpy()
                     sorted_indices = sorted(range(len(ids)), key=lambda i: ids[i])
                     for i, box_idx in enumerate(sorted_indices):
-                        if i+1 > max_N: 
+                        if i+1 > max_N:  # 超出最大目标数则忽略
                             break
                         boxes_seq[b, t, i] = torch.from_numpy(bboxes[box_idx])
 
@@ -74,6 +86,7 @@ class MultiPersonProcessor(nn.Module):
                     axes[row, col].imshow(frame, interpolation='nearest', cmap='viridis')
                     axes[row, col].axis('off')
 
+                    # 绘制每个目标的框和ID
                     if tracked_objects[0].boxes.id is not None:
                         print(bboxes)
                         print(ids)
@@ -90,16 +103,32 @@ class MultiPersonProcessor(nn.Module):
                                 color=get_person_color(ids[idx]), fontsize=18,
                                 # bbox=dict(facecolor='white', alpha=0.8, pad=1)
                             )
+            if plot:
+                plt.tight_layout()
+                save_path = f"tracking_visualization/batch_{b}_8x2_tracking.png"
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                plt.close()
+                print(f"batch {b} 的4x4跟踪可视化已保存至：{save_path}")
+                print(track_ids)
+                # import pdb; pdb.set_trace()
 
         return boxes_seq
 
 
     def forward(self, pressure_seq: torch.Tensor, boxes_seq: torch.Tensor):
+        """
+        Args:
+            pressure_seq: [B, T, H, W] 原始压力序列
+            boxes_seq: [B, T, max_N, 4] 真实的足迹框位置，这里不使用
+        Returns:
+            List[List[Dict]: 每个样本每个人的SMPL参数
+        """
         B, T, H, W = pressure_seq.shape
         max_N = boxes_seq.shape[2]
         boxes_seq = self.tracking_by_detection(pressure_seq, max_N)
         person_pressures, centers = extract_person_pressures(pressure_seq, boxes_seq)
 
+        # 初始化
         MP_smpl_inner = [{} for _ in range(max_N)]
         MP_smpl = [MP_smpl_inner.copy() for _ in range(B)]
         valid_person_pressures = []
@@ -116,6 +145,7 @@ class MultiPersonProcessor(nn.Module):
                     original_indices.append((b, n))
 
         if valid_person_pressures:
+            # 将收集到的压力序列和中心偏移堆叠起来，增加一个批次维度
             batched_person_pressure = torch.stack(valid_person_pressures, dim=0) # [num_valid_persons, T, H, W]
             bbox_info = torch.stack(valid_bbox, dim=0) # [num_valid_persons, T, 2]
             carpet_coords_expanded = carpet_coords.expand(bbox_info.shape[0], bbox_info.shape[1], -1).to(bbox_info.device)
