@@ -11,7 +11,7 @@ The base codes are largely borrowed from [PIMesh](https://github.com/USTCWzy/PIM
 ### Installation
 
 * PressTrack-HMR is tested on Ubuntu 20.04.4 LTS with Pytorch 1.11.0 and Python 3.8.12. 
-* Download SMPL-related parameters from [SMPL](http://210.45.71.78:8888/d/1fd39b4b0e3c4917a068/), and modify the SMPL path in the `core/trainer.py`, `model/smpl.py` and `model/spin.py` files. 
+* Download SMPL-related parameters from [SMPL](http://210.45.71.78:8888/d/0eb277924fca4bd2942e/), and modify the SMPL path in the `core/trainer.py`, `model/smpl.py` and `model/spin.py` files. 
 
 ### Key Files
 
