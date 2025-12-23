@@ -65,7 +65,8 @@ class Trainer():
         self.val_segments = val_segments
         self.val_results_record = np.zeros((self.len_val_set, 6))
         self.val_joints_record = np.zeros((self.len_val_set, self.max_N, 25, 3))
-        if self.mode == 'unseen_sequence''unseen_sequ':self.test_loader = test_loader
+        if self.mode == 'unseen_sequence':
+            self.test_loader = test_loader
             self.test_segments = test_segments
             self.test_results_record = np.zeros((self.len_test_set, 6))
             self.test_joints_record = np.zeros((self.len_test_set, self.max_N, 25, 3))
@@ -860,4 +861,5 @@ class Trainer():
         pa_mpjpe = errors_pa * m2mm
 
         return errors_wo_align, mpjpe, lower_mpjpe, upper_mpjpe, pa_mpjpe, pve
+
 
