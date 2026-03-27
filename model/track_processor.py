@@ -15,7 +15,7 @@ if yolo_path not in sys.path:
 
 from ultralytics import YOLO
 
-yolo_path = './yolo/ultralytics-main/runs/detect/train3/weights/best.pt'
+yolo_path = './yolo/ultralytics-main/runs/detect/train/weights/best.pt'
 tracker_config = "./yolo/ultralytics-main/ultralytics/cfg/trackers/footprint.yaml"
 cmap = plt.get_cmap('viridis')
 interpolation = 'nearest'
